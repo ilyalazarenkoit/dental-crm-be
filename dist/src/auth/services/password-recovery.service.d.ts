@@ -1,6 +1,6 @@
-import { Repository } from "typeorm";
-import { User } from "@/entities/user.entity";
-import { MailService } from "@/mail/mail.service";
+import { Repository } from 'typeorm';
+import { User } from '@/entities/user.entity';
+import { MailService } from '@/mail/mail.service';
 export declare class PasswordRecoveryService {
     private userRepository;
     private mailService;

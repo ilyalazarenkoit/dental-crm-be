@@ -1,14 +1,15 @@
 import { Repository } from "typeorm";
 import { User } from "@/entities/user.entity";
-import { JwtService } from "@nestjs/jwt";
+import { TokenService } from "./token.service";
 export declare class LoginService {
     private userRepository;
-    private jwtService;
-    constructor(userRepository: Repository<User>, jwtService: JwtService);
-    login(email: string, password: string): Promise<{
+    private tokenService;
+    constructor(userRepository: Repository<User>, tokenService: TokenService);
+    login(email: string, password: string, userAgent?: string, ip?: string): Promise<{
         accessToken: string;
+        refreshToken: string;
         user: {
-            id: string;
+            userId: string;
             firstName: string;
             lastName: string;
             email: string;

@@ -21,12 +21,14 @@ let TokenBlacklistService = class TokenBlacklistService {
     async blacklistToken(token) {
         try {
             const decoded = this.jwtService.decode(token);
-            if (decoded && decoded["exp"]) {
-                this.blacklistedTokens.set(token, decoded["exp"]);
+            if (decoded && decoded['exp']) {
+                this.blacklistedTokens.set(token, decoded['exp']);
             }
         }
         catch (error) {
-            console.error("Error blacklisting token:", error);
+            if (process.env.NODE_ENV !== 'production') {
+                console.error('Error blacklisting token:', error);
+            }
         }
     }
     isTokenBlacklisted(token) {
@@ -38,6 +40,14 @@ let TokenBlacklistService = class TokenBlacklistService {
             if (expiry < now) {
                 this.blacklistedTokens.delete(token);
             }
+        }
+    }
+    decodeToken(token) {
+        try {
+            return this.jwtService.decode(token);
+        }
+        catch (error) {
+            return null;
         }
     }
 };

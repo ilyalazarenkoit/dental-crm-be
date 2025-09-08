@@ -1,4 +1,4 @@
-import { JwtService } from "@nestjs/jwt";
+import { JwtService } from '@nestjs/jwt';
 export declare class TokenBlacklistService {
     private jwtService;
     private blacklistedTokens;
@@ -6,4 +6,5 @@ export declare class TokenBlacklistService {
     blacklistToken(token: string): Promise<void>;
     isTokenBlacklisted(token: string): boolean;
     private cleanupExpiredTokens;
+    decodeToken(token: string): unknown;
 }

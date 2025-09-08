@@ -12,19 +12,33 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LogoutService = void 0;
 const common_1 = require("@nestjs/common");
 const token_blacklist_service_1 = require("./token-blacklist.service");
+const refresh_token_storage_service_1 = require("./refresh-token-storage.service");
 let LogoutService = class LogoutService {
-    constructor(tokenBlacklistService) {
+    constructor(tokenBlacklistService, refreshTokenStorageService) {
         this.tokenBlacklistService = tokenBlacklistService;
+        this.refreshTokenStorageService = refreshTokenStorageService;
     }
     async logout(token) {
-        const tokenValue = token.startsWith("Bearer ") ? token.slice(7) : token;
+        const tokenValue = token.startsWith('Bearer ') ? token.slice(7) : token;
         await this.tokenBlacklistService.blacklistToken(tokenValue);
-        return { message: "Logout successful" };
+        try {
+            const decoded = this.tokenBlacklistService.decodeToken(tokenValue);
+            if (decoded && decoded.sub) {
+                await this.refreshTokenStorageService.invalidateAllUserTokens(decoded.sub);
+            }
+        }
+        catch (error) {
+            if (process.env.NODE_ENV !== 'production') {
+                console.error('Error invalidating refresh tokens during logout:', error);
+            }
+        }
+        return { message: 'Logout successful' };
     }
 };
 exports.LogoutService = LogoutService;
 exports.LogoutService = LogoutService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [token_blacklist_service_1.TokenBlacklistService])
+    __metadata("design:paramtypes", [token_blacklist_service_1.TokenBlacklistService,
+        refresh_token_storage_service_1.RefreshTokenStorageService])
 ], LogoutService);
 //# sourceMappingURL=logout.service.js.map

@@ -24,13 +24,35 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    // Для BadRequestException и ValidationPipe ошибок, используем более точное сообщение
-    let message =
-      exception instanceof HttpException
-        ? exception.message
-        : "Internal Server Error";
+    let message = "Internal Server Error";
 
-    // Особая обработка для ошибок валидации
+    if (exception instanceof HttpException) {
+      const exceptionResponse = exception.getResponse();
+
+      this.logger.debug(`Exception response type: ${typeof exceptionResponse}`);
+      this.logger.debug(
+        `Exception response: ${JSON.stringify(exceptionResponse)}`
+      );
+      this.logger.debug(`Exception message: ${exception.message}`);
+
+      if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
+        if (
+          "message" in exceptionResponse &&
+          typeof exceptionResponse.message === "string"
+        ) {
+          message = exceptionResponse.message;
+        } else {
+          message = exception.message;
+        }
+      } else if (typeof exceptionResponse === "string") {
+        message = exceptionResponse;
+      } else {
+        message = exception.message;
+      }
+    }
+
+    this.logger.debug(`Final message: ${message}`);
+
     const isValidationError = this.isValidationError(exception);
     if (isValidationError) {
       message = "Validation Failed";
@@ -82,28 +104,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
         };
       }
 
-      // Показываем, если response — объект с данными
       if (typeof response === "object" && response !== null) {
         return response as Record<string, any>;
       }
 
-      // Иногда response — строка (например, при `throw new BadRequestException('Invalid')`)
       return {
         error: typeof response === "string" ? response : "Bad Request",
         statusCode: exception.getStatus(),
       };
     }
 
-    // Показываем stack в dev-среде
     if (process.env.NODE_ENV !== "production") {
       return { stack: exception.stack };
     }
 
     return undefined;
   }
-  /**
-   * Проверяет, является ли ошибка ошибкой валидации от ValidationPipe
-   */
+
   private isValidationError(exception: any): boolean {
     if (!(exception instanceof HttpException)) {
       return false;
@@ -120,9 +137,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
     );
   }
 
-  /**
-   * Извлекает и форматирует ошибки валидации в более читаемый формат
-   */
   private extractValidationErrors(exception: any): Record<string, string[]> {
     const response = exception.getResponse() as any;
     const validationErrors = response.message;
@@ -153,9 +167,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
     return formattedErrors;
   }
 
-  /**
-   * Рекурсивно добавляет вложенные ошибки валидации
-   */
   private addNestedValidationErrors(
     children: ValidationError[],
     messages: string[],

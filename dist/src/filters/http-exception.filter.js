@@ -20,9 +20,29 @@ let HttpExceptionFilter = HttpExceptionFilter_1 = class HttpExceptionFilter {
         const status = exception instanceof common_1.HttpException
             ? exception.getStatus()
             : common_1.HttpStatus.INTERNAL_SERVER_ERROR;
-        let message = exception instanceof common_1.HttpException
-            ? exception.message
-            : "Internal Server Error";
+        let message = "Internal Server Error";
+        if (exception instanceof common_1.HttpException) {
+            const exceptionResponse = exception.getResponse();
+            this.logger.debug(`Exception response type: ${typeof exceptionResponse}`);
+            this.logger.debug(`Exception response: ${JSON.stringify(exceptionResponse)}`);
+            this.logger.debug(`Exception message: ${exception.message}`);
+            if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
+                if ("message" in exceptionResponse &&
+                    typeof exceptionResponse.message === "string") {
+                    message = exceptionResponse.message;
+                }
+                else {
+                    message = exception.message;
+                }
+            }
+            else if (typeof exceptionResponse === "string") {
+                message = exceptionResponse;
+            }
+            else {
+                message = exception.message;
+            }
+        }
+        this.logger.debug(`Final message: ${message}`);
         const isValidationError = this.isValidationError(exception);
         if (isValidationError) {
             message = "Validation Failed";

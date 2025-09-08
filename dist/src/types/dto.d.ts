@@ -1,4 +1,4 @@
-import { UserRole } from "@/types/enums";
+import { UserRole } from '@/types/enums';
 export interface CreateOrganizationDto {
     name: string;
     subscriptionStartDate: Date;

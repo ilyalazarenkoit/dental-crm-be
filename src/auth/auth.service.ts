@@ -1,14 +1,15 @@
-import { Injectable } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import { RegisterOwnerDto } from "./dto/register-owner.dto";
-import { RegistrationService } from "./services/registration.service";
-import { EmailVerificationService } from "./services/email-verification.service";
-import { LoginService } from "./services/login.service";
-import { LoginDto } from "./dto/login.dto";
-import { PasswordRecoveryService } from "./services/password-recovery.service";
-import { ForgotPasswordDto } from "./dto/forgot-password.dto";
-import { ResetPasswordDto } from "./dto/reset-password.dto";
-import { LogoutService } from "./services/logout.service";
+import { Injectable } from '@nestjs/common';
+import { TokenService } from './services/token.service';
+import { RegisterOwnerDto } from './dto/register-owner.dto';
+import { RegistrationService } from './services/registration.service';
+import { EmailVerificationService } from './services/email-verification.service';
+import { LoginService } from './services/login.service';
+import { LoginDto } from './dto/login.dto';
+import { PasswordRecoveryService } from './services/password-recovery.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { LogoutService } from './services/logout.service';
+import { User } from '@/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -18,35 +19,52 @@ export class AuthService {
     private loginService: LoginService,
     private passwordRecoveryService: PasswordRecoveryService,
     private logoutService: LogoutService,
-    private jwtService: JwtService
+    private tokenService: TokenService,
   ) {}
 
   async registerOwner(registerOwnerDto: RegisterOwnerDto) {
     return this.registrationService.registerOwner(registerOwnerDto);
   }
 
-  async verifyEmail(token: string) {
+  async verifyEmail(token: string, userAgent?: string, ip?: string) {
     const result = await this.emailVerificationService.verifyEmail(token);
 
     if (result.user) {
-      const accessToken = this.jwtService.sign({
-        sub: result.user.id,
-        email: result.user.email,
-        role: result.user.role,
-        organizationId: result.user.organizationId,
-      });
+      // Create full User object for passing to TokenService
+      const user = new User();
+      Object.assign(user, result.user);
+
+      // Generate secure tokens
+      const accessToken = this.tokenService.generateAccessToken(
+        user,
+        result.user.organizationId,
+        userAgent,
+        ip,
+      );
+
+      const refreshToken = await this.tokenService.generateRefreshToken(
+        user,
+        userAgent,
+        ip,
+      );
 
       return {
         ...result,
         accessToken,
+        refreshToken,
       };
     }
 
     return result;
   }
 
-  async login(loginDto: LoginDto) {
-    return this.loginService.login(loginDto.email, loginDto.password);
+  async login(loginDto: LoginDto, userAgent?: string, ip?: string) {
+    return this.loginService.login(
+      loginDto.email,
+      loginDto.password,
+      userAgent,
+      ip,
+    );
   }
 
   async resendVerificationEmail(email: string) {
@@ -60,11 +78,57 @@ export class AuthService {
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
     return this.passwordRecoveryService.resetPassword(
       resetPasswordDto.token,
-      resetPasswordDto.password
+      resetPasswordDto.password,
     );
   }
 
   async logout(token: string) {
     return this.logoutService.logout(token);
+  }
+
+  async refreshToken(refreshToken: string, userAgent?: string, ip?: string) {
+    // Validate refresh token against database
+    const validationResult =
+      await this.tokenService.validateRefreshTokenFromDB(refreshToken);
+    if (!validationResult) {
+      throw new Error('Invalid refresh token');
+    }
+
+    const { decoded } = validationResult;
+
+    // Get user from DB by ID
+    const user = await this.registrationService.getUserById(decoded.sub);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Generate new access token
+    const newAccessToken = this.tokenService.generateAccessToken(
+      user,
+      user.organizationId,
+      userAgent,
+      ip,
+    );
+
+    // Rotate refresh token (invalidate old, create new)
+    const newRefreshToken = await this.tokenService.rotateRefreshToken(
+      refreshToken,
+      user,
+      userAgent,
+      ip,
+    );
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      user: {
+        userId: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        organizationId: user.organizationId,
+      },
+    };
   }
 }

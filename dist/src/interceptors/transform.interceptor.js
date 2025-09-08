@@ -12,6 +12,9 @@ const operators_1 = require("rxjs/operators");
 let TransformInterceptor = class TransformInterceptor {
     intercept(context, next) {
         return next.handle().pipe((0, operators_1.map)((data) => {
+            if (data && typeof data === "object" && "success" in data) {
+                return data;
+            }
             const ctx = context.switchToHttp();
             const request = ctx.getRequest();
             return {

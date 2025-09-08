@@ -23,4 +23,5 @@ export declare class RegistrationService {
         message: string;
     }>;
     private generateVerificationToken;
+    getUserById(id: string): Promise<User | null>;
 }

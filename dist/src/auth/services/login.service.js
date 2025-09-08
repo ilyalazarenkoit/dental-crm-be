@@ -17,15 +17,15 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const user_entity_1 = require("../../entities/user.entity");
-const jwt_1 = require("@nestjs/jwt");
+const token_service_1 = require("./token.service");
 const bcrypt = require("bcrypt");
 const enums_1 = require("../../types/enums");
 let LoginService = class LoginService {
-    constructor(userRepository, jwtService) {
+    constructor(userRepository, tokenService) {
         this.userRepository = userRepository;
-        this.jwtService = jwtService;
+        this.tokenService = tokenService;
     }
-    async login(email, password) {
+    async login(email, password, userAgent, ip) {
         const user = await this.userRepository.findOne({
             where: { email },
         });
@@ -42,17 +42,13 @@ let LoginService = class LoginService {
         if (!isPasswordValid) {
             throw new common_1.UnauthorizedException("Invalid email or password");
         }
-        const payload = {
-            sub: user.id,
-            email: user.email,
-            role: user.role,
-            organizationId: user.organizationId,
-        };
-        const accessToken = this.jwtService.sign(payload);
+        const accessToken = this.tokenService.generateAccessToken(user, user.organizationId, userAgent, ip);
+        const refreshToken = await this.tokenService.generateRefreshToken(user, userAgent, ip);
         return {
             accessToken,
+            refreshToken,
             user: {
-                id: user.id,
+                userId: user.id,
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
@@ -70,6 +66,6 @@ exports.LoginService = LoginService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
-        jwt_1.JwtService])
+        token_service_1.TokenService])
 ], LoginService);
 //# sourceMappingURL=login.service.js.map

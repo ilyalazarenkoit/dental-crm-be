@@ -10,15 +10,31 @@ exports.JwtCookieMiddleware = void 0;
 const common_1 = require("@nestjs/common");
 let JwtCookieMiddleware = class JwtCookieMiddleware {
     use(req, res, next) {
-        if (req.headers.authorization) {
-            next();
-            return;
-        }
-        const token = req.cookies["accessToken"];
+        const token = req.cookies?.jwt || req.cookies?.access_token;
         if (token) {
             req.headers.authorization = `Bearer ${token}`;
         }
+        req.userAgent = req.headers["user-agent"] || "unknown";
+        req.clientIp = this.getClientIp(req);
         next();
+    }
+    getClientIp(req) {
+        const xForwardedFor = req.headers["x-forwarded-for"];
+        const xRealIp = req.headers["x-real-ip"];
+        const cfConnectingIp = req.headers["cf-connecting-ip"];
+        if (cfConnectingIp) {
+            return Array.isArray(cfConnectingIp) ? cfConnectingIp[0] : cfConnectingIp;
+        }
+        if (xRealIp) {
+            return Array.isArray(xRealIp) ? xRealIp[0] : xRealIp;
+        }
+        if (xForwardedFor) {
+            const ips = Array.isArray(xForwardedFor)
+                ? xForwardedFor[0]
+                : xForwardedFor;
+            return ips.split(",")[0].trim();
+        }
+        return (req.connection.remoteAddress || req.socket.remoteAddress || "unknown");
     }
 };
 exports.JwtCookieMiddleware = JwtCookieMiddleware;

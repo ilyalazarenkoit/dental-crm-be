@@ -27,25 +27,40 @@ let AuthController = class AuthController {
     async registerOwner(registerOwnerDto) {
         return this.authService.registerOwner(registerOwnerDto);
     }
-    async login(loginDto, response) {
-        const result = await this.authService.login(loginDto);
-        response.cookie("accessToken", result.accessToken, {
+    async login(loginDto, request, response) {
+        const userAgent = request.headers['user-agent'];
+        const clientIp = request.clientIp || request.ip || 'unknown';
+        const result = await this.authService.login(loginDto, userAgent, clientIp);
+        response.cookie('refreshToken', result.refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            maxAge: 24 * 60 * 60 * 1000,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            path: '/auth/refresh',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
         });
-        return result;
+        return {
+            accessToken: result.accessToken,
+            user: result.user,
+        };
     }
-    async verifyEmail(token, response) {
-        const result = await this.authService.verifyEmail(token);
-        if (result.user && "accessToken" in result) {
-            response.cookie("accessToken", result.accessToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "lax",
-                maxAge: 24 * 60 * 60 * 1000,
-            });
+    async verifyEmail(token, request, response) {
+        const userAgent = request.headers['user-agent'];
+        const clientIp = request.clientIp || request.ip || 'unknown';
+        const result = await this.authService.verifyEmail(token, userAgent, clientIp);
+        if (result.user && 'accessToken' in result) {
+            if ('refreshToken' in result) {
+                response.cookie('refreshToken', result.refreshToken, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'strict',
+                    path: '/auth/refresh',
+                    maxAge: 7 * 24 * 60 * 60 * 1000,
+                });
+            }
+            return {
+                accessToken: result.accessToken,
+                user: result.user,
+            };
         }
         return result;
     }
@@ -58,16 +73,38 @@ let AuthController = class AuthController {
     async resetPassword(resetPasswordDto) {
         return this.authService.resetPassword(resetPasswordDto);
     }
-    async logout(authHeader, response) {
+    async logout(authHeader, request, response) {
         const result = await this.authService.logout(authHeader);
-        response.clearCookie("accessToken");
+        response.clearCookie('refreshToken', {
+            path: '/auth/refresh',
+        });
         return result;
+    }
+    async refreshToken(request, response) {
+        const refreshToken = request.cookies?.refreshToken;
+        const userAgent = request.headers['user-agent'];
+        const clientIp = request.clientIp || request.ip || 'unknown';
+        if (!refreshToken) {
+            throw new Error('Refresh token not found');
+        }
+        const result = await this.authService.refreshToken(refreshToken, userAgent, clientIp);
+        response.cookie('refreshToken', result.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            path: '/auth/refresh',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+        return {
+            accessToken: result.accessToken,
+            user: result.user,
+        };
     }
 };
 exports.AuthController = AuthController;
 __decorate([
     (0, public_decorator_1.Public)(),
-    (0, common_1.Post)("register/owner"),
+    (0, common_1.Post)('register/owner'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [register_owner_dto_1.RegisterOwnerDto]),
@@ -75,25 +112,27 @@ __decorate([
 ], AuthController.prototype, "registerOwner", null);
 __decorate([
     (0, public_decorator_1.Public)(),
-    (0, common_1.Post)("login"),
+    (0, common_1.Post)('login'),
     __param(0, (0, common_1.Body)()),
-    __param(1, (0, common_1.Res)({ passthrough: true })),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [login_dto_1.LoginDto, Object]),
+    __metadata("design:paramtypes", [login_dto_1.LoginDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
 __decorate([
     (0, public_decorator_1.Public)(),
-    (0, common_1.Get)("verify-email"),
-    __param(0, (0, common_1.Query)("token")),
-    __param(1, (0, common_1.Res)({ passthrough: true })),
+    (0, common_1.Get)('verify-email'),
+    __param(0, (0, common_1.Query)('token')),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyEmail", null);
 __decorate([
     (0, public_decorator_1.Public)(),
-    (0, common_1.Post)("resend-verification"),
+    (0, common_1.Post)('resend-verification'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -101,7 +140,7 @@ __decorate([
 ], AuthController.prototype, "resendVerificationEmail", null);
 __decorate([
     (0, public_decorator_1.Public)(),
-    (0, common_1.Post)("forgot-password"),
+    (0, common_1.Post)('forgot-password'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [forgot_password_dto_1.ForgotPasswordDto]),
@@ -109,22 +148,32 @@ __decorate([
 ], AuthController.prototype, "forgotPassword", null);
 __decorate([
     (0, public_decorator_1.Public)(),
-    (0, common_1.Post)("reset-password"),
+    (0, common_1.Post)('reset-password'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [reset_password_dto_1.ResetPasswordDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "resetPassword", null);
 __decorate([
-    (0, common_1.Post)("logout"),
-    __param(0, (0, common_1.Headers)("authorization")),
-    __param(1, (0, common_1.Res)({ passthrough: true })),
+    (0, common_1.Post)('logout'),
+    __param(0, (0, common_1.Headers)('authorization')),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "logout", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Post)('refresh'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "refreshToken", null);
 exports.AuthController = AuthController = __decorate([
-    (0, common_1.Controller)("auth"),
+    (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])
 ], AuthController);
 //# sourceMappingURL=auth.controller.js.map

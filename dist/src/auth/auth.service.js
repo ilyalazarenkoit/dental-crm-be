@@ -11,42 +11,42 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
-const jwt_1 = require("@nestjs/jwt");
+const token_service_1 = require("./services/token.service");
 const registration_service_1 = require("./services/registration.service");
 const email_verification_service_1 = require("./services/email-verification.service");
 const login_service_1 = require("./services/login.service");
 const password_recovery_service_1 = require("./services/password-recovery.service");
 const logout_service_1 = require("./services/logout.service");
+const user_entity_1 = require("../entities/user.entity");
 let AuthService = class AuthService {
-    constructor(registrationService, emailVerificationService, loginService, passwordRecoveryService, logoutService, jwtService) {
+    constructor(registrationService, emailVerificationService, loginService, passwordRecoveryService, logoutService, tokenService) {
         this.registrationService = registrationService;
         this.emailVerificationService = emailVerificationService;
         this.loginService = loginService;
         this.passwordRecoveryService = passwordRecoveryService;
         this.logoutService = logoutService;
-        this.jwtService = jwtService;
+        this.tokenService = tokenService;
     }
     async registerOwner(registerOwnerDto) {
         return this.registrationService.registerOwner(registerOwnerDto);
     }
-    async verifyEmail(token) {
+    async verifyEmail(token, userAgent, ip) {
         const result = await this.emailVerificationService.verifyEmail(token);
         if (result.user) {
-            const accessToken = this.jwtService.sign({
-                sub: result.user.id,
-                email: result.user.email,
-                role: result.user.role,
-                organizationId: result.user.organizationId,
-            });
+            const user = new user_entity_1.User();
+            Object.assign(user, result.user);
+            const accessToken = this.tokenService.generateAccessToken(user, result.user.organizationId, userAgent, ip);
+            const refreshToken = await this.tokenService.generateRefreshToken(user, userAgent, ip);
             return {
                 ...result,
                 accessToken,
+                refreshToken,
             };
         }
         return result;
     }
-    async login(loginDto) {
-        return this.loginService.login(loginDto.email, loginDto.password);
+    async login(loginDto, userAgent, ip) {
+        return this.loginService.login(loginDto.email, loginDto.password, userAgent, ip);
     }
     async resendVerificationEmail(email) {
         return this.emailVerificationService.resendVerificationEmail(email);
@@ -60,6 +60,31 @@ let AuthService = class AuthService {
     async logout(token) {
         return this.logoutService.logout(token);
     }
+    async refreshToken(refreshToken, userAgent, ip) {
+        const validationResult = await this.tokenService.validateRefreshTokenFromDB(refreshToken);
+        if (!validationResult) {
+            throw new Error('Invalid refresh token');
+        }
+        const { decoded } = validationResult;
+        const user = await this.registrationService.getUserById(decoded.sub);
+        if (!user) {
+            throw new Error('User not found');
+        }
+        const newAccessToken = this.tokenService.generateAccessToken(user, user.organizationId, userAgent, ip);
+        const newRefreshToken = await this.tokenService.rotateRefreshToken(refreshToken, user, userAgent, ip);
+        return {
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+            user: {
+                userId: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role,
+                organizationId: user.organizationId,
+            },
+        };
+    }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
@@ -69,6 +94,6 @@ exports.AuthService = AuthService = __decorate([
         login_service_1.LoginService,
         password_recovery_service_1.PasswordRecoveryService,
         logout_service_1.LogoutService,
-        jwt_1.JwtService])
+        token_service_1.TokenService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

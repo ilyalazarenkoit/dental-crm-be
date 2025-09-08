@@ -1,9 +1,13 @@
-import { Response } from "express";
-import { AuthService } from "./auth.service";
-import { RegisterOwnerDto } from "./dto/register-owner.dto";
-import { LoginDto } from "./dto/login.dto";
-import { ForgotPasswordDto } from "./dto/forgot-password.dto";
-import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { Response, Request } from 'express';
+import { AuthService } from './auth.service';
+import { RegisterOwnerDto } from './dto/register-owner.dto';
+import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+interface ExtendedRequest extends Request {
+    userAgent?: string;
+    clientIp?: string;
+}
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
@@ -20,10 +24,10 @@ export declare class AuthController {
         };
         message: string;
     }>;
-    login(loginDto: LoginDto, response: Response): Promise<{
+    login(loginDto: LoginDto, request: ExtendedRequest, response: Response): Promise<{
         accessToken: string;
         user: {
-            id: string;
+            userId: string;
             firstName: string;
             lastName: string;
             email: string;
@@ -31,12 +35,11 @@ export declare class AuthController {
             organizationId: string;
         };
     }>;
-    verifyEmail(token: string, response: Response): Promise<{
+    verifyEmail(token: string, request: ExtendedRequest, response: Response): Promise<{
         message: string;
         user?: undefined;
     } | {
         accessToken: string;
-        message: string;
         user: {
             id: string;
             firstName: string;
@@ -58,7 +61,19 @@ export declare class AuthController {
     resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{
         message: string;
     }>;
-    logout(authHeader: string, response: Response): Promise<{
+    logout(authHeader: string, request: ExtendedRequest, response: Response): Promise<{
         message: string;
     }>;
+    refreshToken(request: ExtendedRequest, response: Response): Promise<{
+        accessToken: string;
+        user: {
+            userId: string;
+            firstName: string;
+            lastName: string;
+            email: string;
+            role: import("../types/enums").UserRole;
+            organizationId: string;
+        };
+    }>;
 }
+export {};

@@ -82,6 +82,11 @@ let RegistrationService = class RegistrationService {
     generateVerificationToken() {
         return (0, crypto_1.randomBytes)(32).toString("hex");
     }
+    async getUserById(id) {
+        return this.userRepository.findOne({
+            where: { id },
+        });
+    }
 };
 exports.RegistrationService = RegistrationService;
 exports.RegistrationService = RegistrationService = __decorate([

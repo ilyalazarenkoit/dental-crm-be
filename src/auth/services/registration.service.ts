@@ -99,4 +99,10 @@ export class RegistrationService {
   private generateVerificationToken(): string {
     return randomBytes(32).toString("hex");
   }
+
+  async getUserById(id: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id },
+    });
+  }
 }

@@ -28,7 +28,7 @@ let PasswordRecoveryService = class PasswordRecoveryService {
     async forgotPassword(email) {
         const user = await this.userRepository.findOne({ where: { email } });
         if (!user) {
-            throw new common_1.BadRequestException("We have sent an email with further instructions if the address is registered.");
+            throw new common_1.BadRequestException('We have sent an email with further instructions if the address is registered.');
         }
         const resetToken = this.generateResetToken();
         const resetTokenExpires = new Date();
@@ -38,7 +38,7 @@ let PasswordRecoveryService = class PasswordRecoveryService {
         await this.userRepository.save(user);
         await this.mailService.sendPasswordResetEmail(user.email, resetToken);
         return {
-            message: "Password reset instructions have been sent to your email",
+            message: 'Password reset instructions have been sent to your email',
         };
     }
     async resetPassword(token, newPassword) {
@@ -46,23 +46,23 @@ let PasswordRecoveryService = class PasswordRecoveryService {
             where: { resetPasswordToken: token },
         });
         if (!user) {
-            throw new common_1.NotFoundException("Invalid or expired password reset token");
+            throw new common_1.NotFoundException('Invalid or expired password reset token');
         }
         if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
-            throw new common_1.BadRequestException("Password reset token has expired");
+            throw new common_1.BadRequestException('Password reset token has expired');
         }
         const salt = await bcrypt.genSalt();
         const hashedPassword = await bcrypt.hash(newPassword, salt);
         user.password = hashedPassword;
-        user.resetPasswordToken = "";
+        user.resetPasswordToken = '';
         user.resetPasswordExpires = new Date();
         await this.userRepository.save(user);
         return {
-            message: "Password has been successfully reset",
+            message: 'Password has been successfully reset',
         };
     }
     generateResetToken() {
-        return (0, crypto_1.randomBytes)(32).toString("hex");
+        return (0, crypto_1.randomBytes)(32).toString('hex');
     }
 };
 exports.PasswordRecoveryService = PasswordRecoveryService;

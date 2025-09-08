@@ -36,8 +36,8 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.Matches)(/^(\+[0-9]{1,3})?[-\s\.]?[0-9]{3,}[-\s\.]?[0-9]{3,}[-\s\.]?[0-9]{0,}$/, {
-        message: "Mobile phone must be a valid phone number (e.g., +49123456789, +380501234567)",
+    (0, class_validator_1.Matches)(/^(\+[0-9]{1,3})?[-\s.]?[0-9]{3,}[-\s.]?[0-9]{3,}[-\s.]?[0-9]{0,}$/, {
+        message: 'Mobile phone must be a valid phone number (e.g., +49123456789, +380501234567)',
     }),
     __metadata("design:type", String)
 ], RegisterOwnerDto.prototype, "mobilePhone", void 0);

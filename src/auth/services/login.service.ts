@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { User } from "@/entities/user.entity";
-import { JwtService } from "@nestjs/jwt";
+import { TokenService } from "./token.service";
 import * as bcrypt from "bcrypt";
 import { UserStatus } from "@/types/enums";
 
@@ -11,10 +11,15 @@ export class LoginService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    private jwtService: JwtService
+    private tokenService: TokenService
   ) {}
 
-  async login(email: string, password: string) {
+  async login(
+    email: string,
+    password: string,
+    userAgent?: string,
+    ip?: string
+  ) {
     const user = await this.userRepository.findOne({
       where: { email },
     });
@@ -38,19 +43,25 @@ export class LoginService {
       throw new UnauthorizedException("Invalid email or password");
     }
 
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      organizationId: user.organizationId,
-    };
+    // Generate secure tokens
+    const accessToken = this.tokenService.generateAccessToken(
+      user,
+      user.organizationId,
+      userAgent,
+      ip
+    );
 
-    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = await this.tokenService.generateRefreshToken(
+      user,
+      userAgent,
+      ip
+    );
 
     return {
       accessToken,
+      refreshToken,
       user: {
-        id: user.id,
+        userId: user.id,
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,

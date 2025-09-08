@@ -10,6 +10,7 @@ exports.MailModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const mail_service_1 = require("./mail.service");
+const brevo_service_1 = require("./brevo.service");
 const mail_config_1 = require("../config/mail.config");
 let MailModule = class MailModule {
 };
@@ -21,8 +22,8 @@ exports.MailModule = MailModule = __decorate([
                 load: [mail_config_1.default],
             }),
         ],
-        providers: [mail_service_1.MailService],
-        exports: [mail_service_1.MailService],
+        providers: [mail_service_1.MailService, brevo_service_1.BrevoService],
+        exports: [mail_service_1.MailService, brevo_service_1.BrevoService],
     })
 ], MailModule);
 //# sourceMappingURL=mail.module.js.map
