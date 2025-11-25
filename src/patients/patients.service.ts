@@ -35,12 +35,9 @@ export class PatientsService {
 
     const skip = (page - 1) * limit;
 
-    // Get organization ID from current user context
     const organizationId =
       await this.organizationContextService.getOrganizationId();
 
-    // Build query builder for search and sorting
-    // Always filter by organizationId for multi-tenant isolation
     const queryBuilder = this.patientRepository
       .createQueryBuilder('patient')
       .where('patient.organizationId = :organizationId', { organizationId });
@@ -56,18 +53,14 @@ export class PatientsService {
       );
     }
 
-    // Add sorting
     const orderBy =
       sortBy === 'dateOfBirth' ? 'patient.dateOfBirth' : `patient.${sortBy}`;
     queryBuilder.orderBy(orderBy, sortOrder);
 
-    // Get total count
     const total = await queryBuilder.getCount();
 
-    // Apply pagination
     queryBuilder.skip(skip).take(limit);
 
-    // Execute query
     const data = await queryBuilder.getMany();
 
     return {
@@ -84,7 +77,6 @@ export class PatientsService {
    * Automatically filtered by organizationId from current user context
    */
   async getPatientById(patientId: string): Promise<Patient> {
-    // Get organization ID from current user context
     const organizationId =
       await this.organizationContextService.getOrganizationId();
 

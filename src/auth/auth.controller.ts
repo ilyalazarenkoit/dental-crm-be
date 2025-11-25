@@ -39,22 +39,19 @@ export class AuthController {
     @Req() request: ExtendedRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
-    // Get user agent and IP for fingerprinting
     const userAgent = request.headers['user-agent'];
     const clientIp = request.clientIp || request.ip || 'unknown';
 
     const result = await this.authService.login(loginDto, userAgent, clientIp);
 
-    // Set refresh token cookie (long lifetime) - SECURE SETTINGS
     response.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict', // More secure than "lax"
-      path: '/auth/refresh', // Restrict to refresh endpoint only
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      sameSite: 'strict',
+      path: '/auth/refresh',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // Return only access token in JSON (NOT in cookie for security)
     return {
       accessToken: result.accessToken,
       user: result.user,
@@ -78,18 +75,16 @@ export class AuthController {
     );
 
     if ('user' in result && result.user && 'accessToken' in result) {
-      // Set refresh token cookie with secure settings
       if ('refreshToken' in result) {
         response.cookie('refreshToken', result.refreshToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict',
           path: '/auth/refresh',
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          maxAge: 7 * 24 * 60 * 60 * 1000,
         });
       }
 
-      // Return only access token in JSON
       return {
         accessToken: result.accessToken,
         user: result.user,
@@ -125,7 +120,6 @@ export class AuthController {
   ) {
     const result = await this.authService.logout(authHeader);
 
-    // Clear refresh token cookie on logout
     response.clearCookie('refreshToken', {
       path: '/auth/refresh',
     });
@@ -153,16 +147,14 @@ export class AuthController {
       clientIp,
     );
 
-    // Update refresh token cookie with new rotated token
     response.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/auth/refresh',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // Return only access token in JSON (NOT refresh token)
     return {
       accessToken: result.accessToken,
       user: result.user,

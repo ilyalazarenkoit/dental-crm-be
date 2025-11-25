@@ -51,9 +51,6 @@ export class Visit {
   })
   status: VisitStatus;
 
-  // Relations are defined on the child entities (Billing)
-  // Access them via queries: visitRepository.find({ relations: ['billings'] })
-
   @CreateDateColumn()
   createdAt: Date;
 

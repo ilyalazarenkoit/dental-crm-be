@@ -42,9 +42,6 @@ export class Organization {
   @OneToMany(() => User, user => user.organization)
   users: User[];
 
-  // Relations to Patient and Doctor are defined in their respective entities
-  // Access them via queries filtered by organizationId to avoid circular dependencies
-
   @CreateDateColumn()
   createdAt: Date;
 

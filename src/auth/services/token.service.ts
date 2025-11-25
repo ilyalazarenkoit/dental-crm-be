@@ -20,13 +20,11 @@ export class TokenService {
     ip?: string,
   ) {
     const payload = {
-      sub: user.id, // Standard JWT claim for subject (user ID)
-      jti: this.generateJti(), // JWT ID for blacklisting
-      iss: this.configService.get('jwt.issuer', 'dentalcrm-backend'), // Issuer
-      aud: this.configService.get('jwt.audience', 'dentalcrm-frontend'), // Audience
-      fingerprint: this.generateFingerprint(userAgent, ip), // Security fingerprint
-      // Don't include sensitive data in JWT
-      // email, role, organizationId will be retrieved from DB during validation
+      sub: user.id,
+      jti: this.generateJti(),
+      iss: this.configService.get('jwt.issuer', 'dentalcrm-backend'),
+      aud: this.configService.get('jwt.audience', 'dentalcrm-frontend'),
+      fingerprint: this.generateFingerprint(userAgent, ip),
     };
 
     return this.jwtService.sign(payload);
@@ -57,12 +55,10 @@ export class TokenService {
       expiresIn: refreshExpiresIn,
     });
 
-    // Calculate expiration date
     const expiresAt = new Date();
     const expiresInDays = parseInt(refreshExpiresIn.replace('d', ''));
     expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
-    // Store refresh token in database
     await this.refreshTokenStorageService.storeRefreshToken(
       refreshToken,
       user.id,
@@ -88,7 +84,6 @@ export class TokenService {
     try {
       const decoded = this.jwtService.verify(token);
 
-      // Manually validate issuer and audience
       const expectedIssuer = this.configService.get(
         'jwt.issuer',
         'dentalcrm-backend',
@@ -118,12 +113,10 @@ export class TokenService {
         secret: this.configService.get('jwt.refreshToken.secret'),
       });
 
-      // Validate refresh token specific fields
       if (decoded.type !== 'refresh') {
         throw new Error('Invalid refresh token type');
       }
 
-      // Manually validate issuer and audience
       const expectedIssuer = this.configService.get(
         'jwt.issuer',
         'dentalcrm-backend',
@@ -161,7 +154,6 @@ export class TokenService {
     return expirationDate;
   }
 
-  // Method to safely get user info from token
   getUserInfoFromToken(token: string) {
     const decoded = this.decodeToken(token);
     if (decoded && typeof decoded === 'object') {
@@ -174,7 +166,6 @@ export class TokenService {
     return null;
   }
 
-  // Public method to generate fingerprint for verification
   generateFingerprintForVerification(userAgent?: string, ip?: string): string {
     return this.generateFingerprint(userAgent, ip);
   }
@@ -193,12 +184,10 @@ export class TokenService {
     userAgent?: string,
     ip?: string,
   ): Promise<string> {
-    // Invalidate old refresh token
     await this.refreshTokenStorageService.invalidateRefreshToken(
       oldRefreshToken,
     );
 
-    // Generate new refresh token
     return this.generateRefreshToken(user, userAgent, ip);
   }
 
@@ -208,20 +197,17 @@ export class TokenService {
    * @returns Decoded token if valid, null otherwise
    */
   async validateRefreshTokenFromDB(token: string) {
-    // First verify JWT signature and structure
     const decoded = this.verifyRefreshToken(token);
     if (!decoded) {
       return null;
     }
 
-    // Then check if token exists and is active in database
     const storedToken =
       await this.refreshTokenStorageService.validateRefreshToken(token);
     if (!storedToken) {
       return null;
     }
 
-    // Verify fingerprint matches
     const expectedFingerprint = this.generateFingerprintForVerification(
       storedToken.userAgent,
       storedToken.ipAddress,

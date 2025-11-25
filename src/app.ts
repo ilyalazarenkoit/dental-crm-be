@@ -51,10 +51,8 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    // Applying JwtCookieMiddleware for all routes
     consumer.apply(JwtCookieMiddleware).forRoutes('*');
 
-    // Applying TokenBlacklistMiddleware for all routes, except /auth/login and /auth/register
     consumer
       .apply(TokenBlacklistMiddleware)
       .exclude(

@@ -40,9 +40,6 @@ export class Doctor {
   @Column()
   organizationId: string;
 
-  // Relations are defined on the child entities (Visit, PatientDoctor)
-  // Access them via queries: doctorRepository.find({ relations: ['visits', 'patientDoctors'] })
-
   @CreateDateColumn()
   createdAt: Date;
 

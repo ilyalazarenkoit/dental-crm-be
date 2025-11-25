@@ -10,7 +10,6 @@ import * as cookieParser from 'cookie-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS
   app.enableCors({
     origin: ['http://localhost:3000', 'https://your-frontend-domain.com'],
     credentials: true,
@@ -20,7 +19,6 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
-  // Enable validation pipes
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -38,14 +36,12 @@ async function bootstrap() {
 
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // Multi-tenant: Load organization context for authenticated requests
   const organizationContextInterceptor = app.get(
     OrganizationContextInterceptor,
   );
   app.useGlobalInterceptors(organizationContextInterceptor);
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  // Setup Swagger documentation
   const config = new DocumentBuilder()
     .setTitle('Dental CRM API')
     .setDescription('API documentation for Dental CRM system')

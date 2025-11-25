@@ -24,14 +24,12 @@ export class OrganizationContextService {
    * Gets userId from JWT token and retrieves organizationId from database
    */
   async getOrganizationId(): Promise<string> {
-    // Get user from request (set by JwtAuthGuard)
     const userPayload = this.request['user'] as CurrentUserPayload | undefined;
 
     if (!userPayload || !userPayload.sub) {
       throw new Error('User not authenticated');
     }
 
-    // Get user from database to get organizationId
     const user = await this.userRepository.findOne({
       where: { id: userPayload.sub },
       select: ['id', 'organizationId'],

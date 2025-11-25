@@ -36,7 +36,6 @@ export class Patient {
   @Column({ nullable: true })
   email: string;
 
-  // Structured address
   @Column({ type: 'varchar', nullable: true })
   addressStreet: string;
 
@@ -59,7 +58,6 @@ export class Patient {
   })
   status: PatientStatus;
 
-  // Tags as PostgreSQL array
   @Column({ type: 'text', array: true, default: [] })
   tags: string[];
 
@@ -68,9 +66,6 @@ export class Patient {
 
   @Column()
   organizationId: string;
-
-  // Relations are defined on the child entities (Visit, PatientDoctor, Billing)
-  // Access them via queries: patientRepository.find({ relations: ['visits'] })
 
   @CreateDateColumn()
   createdAt: Date;
