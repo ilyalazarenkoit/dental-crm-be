@@ -5,42 +5,45 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
-} from "typeorm";
-import { SubscriptionStatus } from "@/types/enums";
-import { User } from "@/entities/user.entity";
+} from 'typeorm';
+import { SubscriptionStatus } from '@/types/enums';
+import { User } from '@/entities/user.entity';
 
-@Entity("organizations")
+@Entity('organizations')
 export class Organization {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
   name: string;
 
-  @Column({ type: "timestamp" })
+  @Column({ type: 'timestamp' })
   subscriptionStartDate: Date;
 
-  @Column({ type: "timestamp" })
+  @Column({ type: 'timestamp' })
   subscriptionEndDate: Date;
 
   @Column({
-    type: "enum",
+    type: 'enum',
     enum: SubscriptionStatus,
     default: SubscriptionStatus.ACTIVE,
   })
   subscriptionStatus: SubscriptionStatus;
 
-  @Column({ type: "integer", default: 1 })
+  @Column({ type: 'integer', default: 1 })
   ownerLimit: number;
 
-  @Column({ type: "integer", default: 1 })
+  @Column({ type: 'integer', default: 1 })
   adminLimit: number;
 
-  @Column({ type: "integer", default: 10 })
+  @Column({ type: 'integer', default: 10 })
   doctorLimit: number;
 
-  @OneToMany(() => User, (user) => user.organization)
+  @OneToMany(() => User, user => user.organization)
   users: User[];
+
+  // Relations to Patient and Doctor are defined in their respective entities
+  // Access them via queries filtered by organizationId to avoid circular dependencies
 
   @CreateDateColumn()
   createdAt: Date;

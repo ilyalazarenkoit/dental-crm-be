@@ -29,7 +29,7 @@ export class AuthService {
   async verifyEmail(token: string, userAgent?: string, ip?: string) {
     const result = await this.emailVerificationService.verifyEmail(token);
 
-    if (result.user) {
+    if ('user' in result && result.user) {
       // Create full User object for passing to TokenService
       const user = new User();
       Object.assign(user, result.user);

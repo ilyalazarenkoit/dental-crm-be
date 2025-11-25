@@ -77,7 +77,7 @@ export class AuthController {
       clientIp,
     );
 
-    if (result.user && 'accessToken' in result) {
+    if ('user' in result && result.user && 'accessToken' in result) {
       // Set refresh token cookie with secure settings
       if ('refreshToken' in result) {
         response.cookie('refreshToken', result.refreshToken, {

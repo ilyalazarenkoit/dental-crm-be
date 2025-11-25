@@ -2,51 +2,74 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { User } from "@/entities/user.entity";
-import { MailService } from "@/mail/mail.service";
-import { UserStatus } from "@/types/enums";
-import { randomBytes } from "crypto";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '@/entities/user.entity';
+import { MailService } from '@/mail/mail.service';
+import { UserStatus } from '@/types/enums';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class EmailVerificationService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    private mailService: MailService
+    private mailService: MailService,
   ) {}
 
   async verifyEmail(token: string) {
+    console.log(
+      '🔍 EmailVerificationService.verifyEmail - Starting verification',
+    );
+    console.log('🔍 Token received:', token);
+
     const user = await this.userRepository.findOne({
       where: { verificationToken: token },
     });
+    console.log('🔍 User found in DB:', user ? 'YES' : 'NO');
+    if (user) {
+      console.log('🔍 User details:', {
+        id: user.id,
+        email: user.email,
+        isEmailVerified: user.isEmailVerified,
+        status: user.status,
+        verificationToken: user.verificationToken,
+        verificationTokenExpires: user.verificationTokenExpires,
+      });
+    }
 
     if (!user) {
-      throw new NotFoundException("Verification token not found");
+      console.log('❌ User not found with verification token');
+      throw new NotFoundException('Verification token not found');
     }
 
     if (user.isEmailVerified) {
-      return { message: "Email already verified" };
+      console.log('⚠️ Email already verified');
+      return { message: 'Email already verified' };
     }
 
     if (
       !user.verificationTokenExpires ||
       user.verificationTokenExpires < new Date()
     ) {
-      throw new BadRequestException("Verification token has expired");
+      console.log('❌ Verification token expired');
+      throw new BadRequestException('Verification token has expired');
     }
+
+    console.log('✅ Token is valid, proceeding with verification');
 
     user.isEmailVerified = true;
     user.status = UserStatus.ACTIVE;
-    user.verificationToken = "";
+    user.verificationToken = '';
     user.verificationTokenExpires = new Date();
 
+    console.log('💾 Saving user to database...');
     await this.userRepository.save(user);
+    console.log('✅ User saved successfully');
 
-    return {
-      message: "Email verification successful",
+    const result = {
+      message: 'Email verification successful',
       user: {
         id: user.id,
         firstName: user.firstName,
@@ -57,6 +80,9 @@ export class EmailVerificationService {
         status: user.status,
       },
     };
+
+    console.log('🔍 Returning result:', result);
+    return result;
   }
 
   async resendVerificationEmail(email: string) {
@@ -65,11 +91,11 @@ export class EmailVerificationService {
     });
 
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException('User not found');
     }
 
     if (user.isEmailVerified) {
-      throw new BadRequestException("Email already verified");
+      throw new BadRequestException('Email already verified');
     }
 
     const verificationToken = this.generateVerificationToken();
@@ -83,7 +109,7 @@ export class EmailVerificationService {
     await this.mailService.sendVerificationEmail(user.email, verificationToken);
 
     return {
-      message: "Verification email resent successfully",
+      message: 'Verification email resent successfully',
     };
   }
 
@@ -103,7 +129,7 @@ export class EmailVerificationService {
   }
 
   private generateVerificationToken(): string {
-    return randomBytes(32).toString("hex");
+    return randomBytes(32).toString('hex');
   }
 
   private generateTokenExpiration(hoursValid: number = 24): Date {

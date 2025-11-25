@@ -1,29 +1,29 @@
-import { Injectable } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import { randomBytes, createHash } from "crypto";
-import { User } from "@/entities/user.entity";
-import { ConfigService } from "@nestjs/config";
-import { RefreshTokenStorageService } from "./refresh-token-storage.service";
+import { Injectable } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { randomBytes, createHash } from 'crypto';
+import { User } from '@/entities/user.entity';
+import { ConfigService } from '@nestjs/config';
+import { RefreshTokenStorageService } from './refresh-token-storage.service';
 
 @Injectable()
 export class TokenService {
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
-    private refreshTokenStorageService: RefreshTokenStorageService
+    private refreshTokenStorageService: RefreshTokenStorageService,
   ) {}
 
   generateAccessToken(
     user: User,
     organizationId: string,
     userAgent?: string,
-    ip?: string
+    ip?: string,
   ) {
     const payload = {
       sub: user.id, // Standard JWT claim for subject (user ID)
       jti: this.generateJti(), // JWT ID for blacklisting
-      iss: this.configService.get("jwt.issuer", "dentalcrm-backend"), // Issuer
-      aud: this.configService.get("jwt.audience", "dentalcrm-frontend"), // Audience
+      iss: this.configService.get('jwt.issuer', 'dentalcrm-backend'), // Issuer
+      aud: this.configService.get('jwt.audience', 'dentalcrm-frontend'), // Audience
       fingerprint: this.generateFingerprint(userAgent, ip), // Security fingerprint
       // Don't include sensitive data in JWT
       // email, role, organizationId will be retrieved from DB during validation
@@ -35,21 +35,21 @@ export class TokenService {
   async generateRefreshToken(
     user: User,
     userAgent?: string,
-    ip?: string
+    ip?: string,
   ): Promise<string> {
     const payload = {
       sub: user.id,
       jti: this.generateJti(),
-      type: "refresh",
-      iss: this.configService.get("jwt.issuer", "dentalcrm-backend"),
-      aud: this.configService.get("jwt.audience", "dentalcrm-frontend"),
+      type: 'refresh',
+      iss: this.configService.get('jwt.issuer', 'dentalcrm-backend'),
+      aud: this.configService.get('jwt.audience', 'dentalcrm-frontend'),
       fingerprint: this.generateFingerprint(userAgent, ip),
     };
 
-    const refreshSecret = this.configService.get("jwt.refreshToken.secret");
+    const refreshSecret = this.configService.get('jwt.refreshToken.secret');
     const refreshExpiresIn = this.configService.get(
-      "jwt.refreshToken.expiresIn",
-      "7d"
+      'jwt.refreshToken.expiresIn',
+      '7d',
     );
 
     const refreshToken = this.jwtService.sign(payload, {
@@ -59,29 +59,29 @@ export class TokenService {
 
     // Calculate expiration date
     const expiresAt = new Date();
-    const expiresInDays = parseInt(refreshExpiresIn.replace("d", ""));
+    const expiresInDays = parseInt(refreshExpiresIn.replace('d', ''));
     expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
     // Store refresh token in database
     await this.refreshTokenStorageService.storeRefreshToken(
       refreshToken,
       user.id,
-      userAgent || "unknown",
-      ip || "unknown",
+      userAgent || 'unknown',
+      ip || 'unknown',
       this.generateFingerprint(userAgent, ip),
-      expiresAt
+      expiresAt,
     );
 
     return refreshToken;
   }
 
   private generateJti(): string {
-    return randomBytes(16).toString("hex");
+    return randomBytes(16).toString('hex');
   }
 
   private generateFingerprint(userAgent?: string, ip?: string): string {
-    const data = `${userAgent || "unknown"}|${ip || "unknown"}`;
-    return createHash("sha256").update(data).digest("hex").substring(0, 16);
+    const data = `${userAgent || 'unknown'}|${ip || 'unknown'}`;
+    return createHash('sha256').update(data).digest('hex').substring(0, 16);
   }
 
   verifyToken(token: string) {
@@ -90,20 +90,20 @@ export class TokenService {
 
       // Manually validate issuer and audience
       const expectedIssuer = this.configService.get(
-        "jwt.issuer",
-        "dentalcrm-backend"
+        'jwt.issuer',
+        'dentalcrm-backend',
       );
       const expectedAudience = this.configService.get(
-        "jwt.audience",
-        "dentalcrm-frontend"
+        'jwt.audience',
+        'dentalcrm-frontend',
       );
 
       if (decoded.iss !== expectedIssuer) {
-        throw new Error("Invalid token issuer");
+        throw new Error('Invalid token issuer');
       }
 
       if (decoded.aud !== expectedAudience) {
-        throw new Error("Invalid token audience");
+        throw new Error('Invalid token audience');
       }
 
       return decoded;
@@ -115,30 +115,30 @@ export class TokenService {
   verifyRefreshToken(token: string) {
     try {
       const decoded = this.jwtService.verify(token, {
-        secret: this.configService.get("jwt.refreshToken.secret"),
+        secret: this.configService.get('jwt.refreshToken.secret'),
       });
 
       // Validate refresh token specific fields
-      if (decoded.type !== "refresh") {
-        throw new Error("Invalid refresh token type");
+      if (decoded.type !== 'refresh') {
+        throw new Error('Invalid refresh token type');
       }
 
       // Manually validate issuer and audience
       const expectedIssuer = this.configService.get(
-        "jwt.issuer",
-        "dentalcrm-backend"
+        'jwt.issuer',
+        'dentalcrm-backend',
       );
       const expectedAudience = this.configService.get(
-        "jwt.audience",
-        "dentalcrm-frontend"
+        'jwt.audience',
+        'dentalcrm-frontend',
       );
 
       if (decoded.iss !== expectedIssuer) {
-        throw new Error("Invalid token issuer");
+        throw new Error('Invalid token issuer');
       }
 
       if (decoded.aud !== expectedAudience) {
-        throw new Error("Invalid token audience");
+        throw new Error('Invalid token audience');
       }
 
       return decoded;
@@ -152,7 +152,7 @@ export class TokenService {
   }
 
   generateVerificationToken(): string {
-    return randomBytes(32).toString("hex");
+    return randomBytes(32).toString('hex');
   }
 
   generateTokenExpiration(hoursValid: number = 24): Date {
@@ -164,7 +164,7 @@ export class TokenService {
   // Method to safely get user info from token
   getUserInfoFromToken(token: string) {
     const decoded = this.decodeToken(token);
-    if (decoded && typeof decoded === "object") {
+    if (decoded && typeof decoded === 'object') {
       return {
         userId: decoded.sub,
         jti: decoded.jti,
@@ -191,11 +191,11 @@ export class TokenService {
     oldRefreshToken: string,
     user: User,
     userAgent?: string,
-    ip?: string
+    ip?: string,
   ): Promise<string> {
     // Invalidate old refresh token
     await this.refreshTokenStorageService.invalidateRefreshToken(
-      oldRefreshToken
+      oldRefreshToken,
     );
 
     // Generate new refresh token
@@ -224,7 +224,7 @@ export class TokenService {
     // Verify fingerprint matches
     const expectedFingerprint = this.generateFingerprintForVerification(
       storedToken.userAgent,
-      storedToken.ipAddress
+      storedToken.ipAddress,
     );
     if (decoded.fingerprint !== expectedFingerprint) {
       return null;
