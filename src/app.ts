@@ -14,6 +14,7 @@ import jwtConfig from './config/jwt.config';
 import { TokenBlacklistMiddleware } from './auth/middlewares/token-blacklist.middleware';
 import { JwtCookieMiddleware } from './auth/middlewares/jwt-cookie.middleware';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { HealthController } from './health/health.controller';
 
 @Module({
   imports: [
@@ -41,7 +42,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
       }),
     }),
   ],
-  controllers: [],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,
