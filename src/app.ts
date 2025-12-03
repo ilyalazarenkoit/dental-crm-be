@@ -39,6 +39,9 @@ import { HealthController } from './health/health.controller';
         synchronize: process.env.NODE_ENV !== 'production',
         logging: process.env.NODE_ENV !== 'production',
         autoLoadEntities: true,
+        ssl: process.env.DB_HOST?.includes('.rds.amazonaws.com')
+          ? { rejectUnauthorized: false }
+          : false,
       }),
     }),
   ],
