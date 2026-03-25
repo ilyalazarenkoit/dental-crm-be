@@ -3,6 +3,15 @@ import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PatientStatus } from '@/types/enums';
 
+// C-5: Explicit allowlist prevents SQL injection via ORDER BY parameter
+const ALLOWED_SORT_FIELDS = [
+  'firstName',
+  'lastName',
+  'createdAt',
+  'dateOfBirth',
+] as const;
+type SortField = (typeof ALLOWED_SORT_FIELDS)[number];
+
 export class GetPatientsDto {
   @ApiPropertyOptional({
     description: 'Page number (starts from 1)',
@@ -50,11 +59,11 @@ export class GetPatientsDto {
   @ApiPropertyOptional({
     description: 'Sort field',
     example: 'createdAt',
-    enum: ['firstName', 'lastName', 'createdAt', 'dateOfBirth'],
+    enum: ALLOWED_SORT_FIELDS,
   })
   @IsOptional()
-  @IsString()
-  sortBy?: string = 'createdAt';
+  @IsEnum(ALLOWED_SORT_FIELDS)
+  sortBy?: SortField = 'createdAt';
 
   @ApiPropertyOptional({
     description: 'Sort order',
@@ -62,6 +71,6 @@ export class GetPatientsDto {
     enum: ['ASC', 'DESC'],
   })
   @IsOptional()
-  @IsString()
+  @IsEnum(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
 }

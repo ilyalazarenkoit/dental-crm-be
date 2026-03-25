@@ -2,6 +2,8 @@ import {
   Injectable,
   ExecutionContext,
   UnauthorizedException,
+  HttpException,
+  Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
@@ -12,6 +14,8 @@ import { TokenService } from '../services/token.service';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
+  private readonly logger = new Logger(JwtAuthGuard.name);
+
   constructor(
     private tokenService: TokenService,
     private tokenBlacklistService: TokenBlacklistService,
@@ -20,7 +24,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     super();
   }
 
-  canActivate(context: ExecutionContext) {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -42,21 +46,27 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
 
     try {
-      if (this.tokenBlacklistService.isTokenBlacklisted(token)) {
-        throw new UnauthorizedException('Token has been invalidated');
-      }
-
       const payload = this.tokenService.verifyToken(token);
 
       if (!payload) {
         throw new UnauthorizedException('Invalid JWT token');
       }
 
-      request['user'] = payload;
+      // H-1: Check DB blacklist by jti (survives restarts, works multi-pod)
+      const jti = payload?.jti as string | undefined;
+      if (jti && (await this.tokenBlacklistService.isTokenBlacklisted(jti))) {
+        throw new UnauthorizedException('Token has been revoked');
+      }
 
+      request['user'] = payload;
       return true;
     } catch (error) {
-      throw new UnauthorizedException('Invalid JWT token');
+      // L-9: Re-throw HttpExceptions as-is; only wrap unexpected errors
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Unexpected error in JwtAuthGuard', error);
+      throw new UnauthorizedException('Authentication failed');
     }
   }
 

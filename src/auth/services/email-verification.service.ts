@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,6 +13,8 @@ import { randomBytes } from 'crypto';
 
 @Injectable()
 export class EmailVerificationService {
+  private readonly logger = new Logger(EmailVerificationService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -19,33 +22,18 @@ export class EmailVerificationService {
   ) {}
 
   async verifyEmail(token: string) {
-    console.log(
-      '🔍 EmailVerificationService.verifyEmail - Starting verification',
-    );
-    console.log('🔍 Token received:', token);
+    this.logger.debug('verifyEmail called');
 
     const user = await this.userRepository.findOne({
       where: { verificationToken: token },
     });
-    console.log('🔍 User found in DB:', user ? 'YES' : 'NO');
-    if (user) {
-      console.log('🔍 User details:', {
-        id: user.id,
-        email: user.email,
-        isEmailVerified: user.isEmailVerified,
-        status: user.status,
-        verificationToken: user.verificationToken,
-        verificationTokenExpires: user.verificationTokenExpires,
-      });
-    }
 
     if (!user) {
-      console.log('❌ User not found with verification token');
+      this.logger.warn('verifyEmail: token not found in DB');
       throw new NotFoundException('Verification token not found');
     }
 
     if (user.isEmailVerified) {
-      console.log('⚠️ Email already verified');
       return { message: 'Email already verified' };
     }
 
@@ -53,22 +41,20 @@ export class EmailVerificationService {
       !user.verificationTokenExpires ||
       user.verificationTokenExpires < new Date()
     ) {
-      console.log('❌ Verification token expired');
+      this.logger.warn(`verifyEmail: token expired for user ${user.id}`);
       throw new BadRequestException('Verification token has expired');
     }
 
-    console.log('✅ Token is valid, proceeding with verification');
-
     user.isEmailVerified = true;
     user.status = UserStatus.ACTIVE;
-    user.verificationToken = '';
-    user.verificationTokenExpires = new Date();
+    // L-1: Clear used tokens properly with null
+    user.verificationToken = null;
+    user.verificationTokenExpires = null;
 
-    console.log('💾 Saving user to database...');
     await this.userRepository.save(user);
-    console.log('✅ User saved successfully');
+    this.logger.log(`Email verified for user ${user.id}`);
 
-    const result = {
+    return {
       message: 'Email verification successful',
       user: {
         id: user.id,
@@ -80,22 +66,19 @@ export class EmailVerificationService {
         status: user.status,
       },
     };
-
-    console.log('🔍 Returning result:', result);
-    return result;
   }
 
+  // H-3: Prevent user enumeration — always return 200 with a neutral message
   async resendVerificationEmail(email: string) {
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
+    const standardResponse = {
+      message:
+        'If this email is registered and unverified, a new verification email has been sent.',
+    };
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const user = await this.userRepository.findOne({ where: { email } });
 
-    if (user.isEmailVerified) {
-      throw new BadRequestException('Email already verified');
+    if (!user || user.isEmailVerified) {
+      return standardResponse;
     }
 
     const verificationToken = this.generateVerificationToken();
@@ -106,11 +89,19 @@ export class EmailVerificationService {
 
     await this.userRepository.save(user);
 
-    await this.mailService.sendVerificationEmail(user.email, verificationToken);
+    try {
+      await this.mailService.sendVerificationEmail(
+        user.email,
+        verificationToken,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send verification email for user ${user.id}`,
+        error,
+      );
+    }
 
-    return {
-      message: 'Verification email resent successfully',
-    };
+    return standardResponse;
   }
 
   async prepareForVerification(user: User) {

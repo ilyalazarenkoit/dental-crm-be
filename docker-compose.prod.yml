@@ -28,6 +28,7 @@ services:
       BREVO_SMTP_PASSWORD: ${BREVO_SMTP_PASSWORD}
       BREVO_FROM: ${BREVO_FROM_EMAIL}
       FRONTEND_URL: ${FRONTEND_URL}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
       # Server
       PORT: 3001
       NODE_ENV: production

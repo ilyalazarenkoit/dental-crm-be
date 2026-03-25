@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { TokenService } from './services/token.service';
 import { RegisterOwnerDto } from './dto/register-owner.dto';
 import { RegistrationService } from './services/registration.service';
@@ -90,16 +90,16 @@ export class AuthService {
     // Validate refresh token against database
     const validationResult =
       await this.tokenService.validateRefreshTokenFromDB(refreshToken);
+    // C-2: Proper HTTP exceptions instead of raw Error
     if (!validationResult) {
-      throw new Error('Invalid refresh token');
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
     const { decoded } = validationResult;
 
-    // Get user from DB by ID
     const user = await this.registrationService.getUserById(decoded.sub);
     if (!user) {
-      throw new Error('User not found');
+      throw new UnauthorizedException('User account not found');
     }
 
     // Generate new access token

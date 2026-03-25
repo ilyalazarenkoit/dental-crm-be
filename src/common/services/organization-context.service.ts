@@ -1,44 +1,30 @@
-import { Injectable, Inject, Scope } from '@nestjs/common';
+import { Injectable, Inject, Scope, UnauthorizedException } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import { Request } from 'express';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from '@/entities/user.entity';
 import { CurrentUserPayload } from '@/auth/decorators/current-user.decorator';
 
 /**
- * Service for managing organization context in multi-tenant architecture
- * Gets organizationId from current user's JWT token
- * Uses REQUEST scope to access request object
+ * Reads organizationId directly from the JWT payload (field `org`).
+ * No DB query needed — eliminates the extra SELECT on every request (M-1).
+ * Uses REQUEST scope to access the request object.
  */
 @Injectable({ scope: Scope.REQUEST })
 export class OrganizationContextService {
-  constructor(
-    @Inject(REQUEST) private readonly request: Request,
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-  ) {}
+  constructor(@Inject(REQUEST) private readonly request: Request) {}
 
-  /**
-   * Get organization ID from current authenticated user
-   * Gets userId from JWT token and retrieves organizationId from database
-   */
-  async getOrganizationId(): Promise<string> {
+  // C-2: Throws UnauthorizedException (HTTP 401) instead of raw Error
+  getOrganizationId(): string {
     const userPayload = this.request['user'] as CurrentUserPayload | undefined;
 
-    if (!userPayload || !userPayload.sub) {
-      throw new Error('User not authenticated');
+    if (!userPayload?.sub) {
+      throw new UnauthorizedException('User not authenticated');
     }
 
-    const user = await this.userRepository.findOne({
-      where: { id: userPayload.sub },
-      select: ['id', 'organizationId'],
-    });
-
-    if (!user) {
-      throw new Error('User not found');
+    if (!userPayload?.org) {
+      // Old token without org claim — force re-login
+      throw new UnauthorizedException('Please log in again to continue');
     }
 
-    return user.organizationId;
+    return userPayload.org;
   }
 }

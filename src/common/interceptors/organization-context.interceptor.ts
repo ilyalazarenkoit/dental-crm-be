@@ -5,28 +5,22 @@ import {
   CallHandler,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { OrganizationContextService } from '../services/organization-context.service';
 
 /**
- * Interceptor to pre-load organization context for the current request
- * This ensures organizationId is available throughout the request lifecycle
+ * After M-1 (organizationId read from JWT payload), there is nothing to pre-load —
+ * getOrganizationId() is a pure synchronous read from request.user.org with no side effects.
+ * The interceptor is retained in the pipeline for backward compatibility but is a no-op.
+ *
+ * Root cause of the removed injection: OrganizationContextService is REQUEST-scoped
+ * (it holds @Inject(REQUEST)), which cannot be injected into a singleton interceptor
+ * obtained via app.get(). The pre-loading logic that justified the injection no longer exists.
  */
 @Injectable()
 export class OrganizationContextInterceptor implements NestInterceptor {
-  constructor(private organizationContextService: OrganizationContextService) {}
-
-  async intercept(
+  intercept(
     context: ExecutionContext,
     next: CallHandler,
-  ): Promise<Observable<any>> {
-    // Pre-load organization ID to cache it
-    try {
-      await this.organizationContextService.getOrganizationId();
-    } catch (error) {
-      // If user is not authenticated, let the guard handle it
-      // This is fine for public routes
-    }
-
+  ): Observable<unknown> {
     return next.handle();
   }
 }

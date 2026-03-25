@@ -1,10 +1,10 @@
 import {
   IsString,
   IsEmail,
-  MinLength,
   IsNotEmpty,
   Matches,
 } from 'class-validator';
+import { IsStrongPassword } from './password.validator';
 
 export class RegisterOwnerDto {
   @IsString()
@@ -18,8 +18,8 @@ export class RegisterOwnerDto {
   @IsEmail()
   email: string;
 
-  @IsString()
-  @MinLength(6)
+  // M-9: Use the shared strong password validator (previously only @MinLength(6))
+  @IsStrongPassword()
   password: string;
 
   @IsString()

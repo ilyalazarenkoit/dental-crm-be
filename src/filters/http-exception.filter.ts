@@ -167,23 +167,5 @@ export class HttpExceptionFilter implements ExceptionFilter {
     return formattedErrors;
   }
 
-  private addNestedValidationErrors(
-    children: ValidationError[],
-    messages: string[],
-    parentField: string
-  ): void {
-    children.forEach((child) => {
-      const field = `${parentField}.${child.property}`;
-
-      if (child.constraints) {
-        messages.push(
-          ...Object.values(child.constraints).map((msg) => `${field}: ${msg}`)
-        );
-      }
-
-      if (child.children?.length) {
-        this.addNestedValidationErrors(child.children, messages, field);
-      }
-    });
-  }
 }
+

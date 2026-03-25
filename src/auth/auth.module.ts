@@ -7,6 +7,7 @@ import { AuthService } from "./auth.service";
 import { User } from "@/entities/user.entity";
 import { Organization } from "@/entities/organization.entity";
 import { RefreshToken } from "@/entities/refresh-token.entity";
+import { RevokedToken } from "@/entities/revoked-token.entity";
 import { MailModule } from "@/mail/mail.module";
 import { RegistrationService } from "./services/registration.service";
 import { EmailVerificationService } from "./services/email-verification.service";
@@ -19,7 +20,8 @@ import { RefreshTokenStorageService } from "./services/refresh-token-storage.ser
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Organization, RefreshToken]),
+    // H-1: RevokedToken added for DB-backed access token blacklist
+    TypeOrmModule.forFeature([User, Organization, RefreshToken, RevokedToken]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -29,11 +31,9 @@ import { RefreshTokenStorageService } from "./services/refresh-token-storage.ser
           secret: jwtConfig.accessToken.secret,
           signOptions: {
             expiresIn: jwtConfig.accessToken.expiresIn,
-            // Remove issuer and audience from signOptions since we set them in payload
-            notBefore: 0, // Token is valid immediately
+            notBefore: 0,
           },
           verifyOptions: {
-            // Remove issuer and audience from verifyOptions since we validate them manually
             ignoreExpiration: false,
             ignoreNotBefore: false,
           },

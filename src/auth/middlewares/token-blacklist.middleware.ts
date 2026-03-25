@@ -1,26 +1,14 @@
-import {
-  Injectable,
-  NestMiddleware,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { TokenBlacklistService } from '../services/token-blacklist.service';
 
+/**
+ * H-1: Blacklist enforcement has been moved to JwtAuthGuard where the DB lookup
+ * is done asynchronously by jti. This middleware is retained as a no-op to avoid
+ * breaking the middleware pipeline — it can be removed in a future cleanup.
+ */
 @Injectable()
 export class TokenBlacklistMiddleware implements NestMiddleware {
-  constructor(private tokenBlacklistService: TokenBlacklistService) {}
-
   use(req: Request, res: Response, next: NextFunction) {
-    const authHeader = req.headers.authorization;
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.slice(7);
-
-      if (this.tokenBlacklistService.isTokenBlacklisted(token)) {
-        throw new UnauthorizedException('Token has been invalidated');
-      }
-    }
-
     next();
   }
 }

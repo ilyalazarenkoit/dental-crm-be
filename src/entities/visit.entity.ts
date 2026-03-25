@@ -26,11 +26,12 @@ export class Visit {
   @Column()
   patientId: string;
 
-  @ManyToOne(() => Doctor, { onDelete: 'SET NULL' })
-  doctor: Doctor;
+  // H-5: nullable:true required — SET NULL would violate NOT NULL constraint otherwise
+  @ManyToOne(() => Doctor, { nullable: true, onDelete: 'SET NULL' })
+  doctor: Doctor | null;
 
-  @Column()
-  doctorId: string;
+  @Column({ nullable: true })
+  doctorId: string | null;
 
   @Column({ type: 'timestamp' })
   date: Date;

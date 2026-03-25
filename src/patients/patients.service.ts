@@ -7,16 +7,29 @@ import { OrganizationContextService } from '@/common/services/organization-conte
 
 @Injectable()
 export class PatientsService {
+  // C-5: Second-layer allowlist as defense-in-depth against ORDER BY injection
+  private readonly ALLOWED_SORT_FIELDS = new Set([
+    'firstName',
+    'lastName',
+    'createdAt',
+    'dateOfBirth',
+  ]);
+
   constructor(
     @InjectRepository(Patient)
     private patientRepository: Repository<Patient>,
     private organizationContextService: OrganizationContextService,
   ) {}
 
-  /**
-   * Get paginated list of patients for the user's organization
-   * Automatically filtered by organizationId from current user context
-   */
+  private getSafeOrderBy(sortBy: string): string {
+    if (!this.ALLOWED_SORT_FIELDS.has(sortBy)) {
+      return 'patient.createdAt';
+    }
+    return sortBy === 'dateOfBirth'
+      ? 'patient.dateOfBirth'
+      : `patient.${sortBy}`;
+  }
+
   async getPatients(query: GetPatientsDto): Promise<{
     data: Patient[];
     total: number;
@@ -53,9 +66,8 @@ export class PatientsService {
       );
     }
 
-    const orderBy =
-      sortBy === 'dateOfBirth' ? 'patient.dateOfBirth' : `patient.${sortBy}`;
-    queryBuilder.orderBy(orderBy, sortOrder);
+    // C-5: Always use the allowlist-validated column name
+    queryBuilder.orderBy(this.getSafeOrderBy(sortBy), sortOrder);
 
     const total = await queryBuilder.getCount();
 
@@ -72,10 +84,6 @@ export class PatientsService {
     };
   }
 
-  /**
-   * Get single patient by ID (only from user's organization)
-   * Automatically filtered by organizationId from current user context
-   */
   async getPatientById(patientId: string): Promise<Patient> {
     const organizationId =
       await this.organizationContextService.getOrganizationId();

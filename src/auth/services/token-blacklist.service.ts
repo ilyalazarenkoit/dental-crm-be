@@ -1,65 +1,77 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, LessThan, MoreThan } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { RevokedToken } from '@/entities/revoked-token.entity';
 
+/**
+ * H-1: DB-backed token blacklist — survives restarts and works in multi-pod deployments.
+ * Stores only the jti (JWT ID) rather than the full token to minimise storage.
+ * L-7: Expired entries are purged daily via a @Cron job.
+ */
 @Injectable()
 export class TokenBlacklistService {
-  private blacklistedTokens: Map<string, number> = new Map();
+  private readonly logger = new Logger(TokenBlacklistService.name);
 
-  constructor(private jwtService: JwtService) {
-    setInterval(() => this.cleanupExpiredTokens(), 3600000);
-  }
+  constructor(
+    @InjectRepository(RevokedToken)
+    private revokedTokenRepository: Repository<RevokedToken>,
+    private jwtService: JwtService,
+  ) {}
 
   /**
-   * Adding token to blacklist
-   * @param token JWT token for adding to blacklist
+   * Blacklist an access token by persisting its jti.
+   * Called on logout.
    */
   async blacklistToken(token: string): Promise<void> {
     try {
       const decoded = this.jwtService.decode(token);
+      if (!decoded || !decoded['jti'] || !decoded['exp']) return;
 
-      if (decoded && decoded['exp']) {
-        this.blacklistedTokens.set(token, decoded['exp']);
-      }
+      const expiresAt = new Date(decoded['exp'] * 1000);
+
+      // upsert avoids duplicate-key error if token is blacklisted twice
+      await this.revokedTokenRepository.upsert(
+        { jti: decoded['jti'], expiresAt },
+        ['jti'],
+      );
     } catch (error) {
-      // Log error without console in production
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Error blacklisting token:', error);
-      }
+      this.logger.error('Failed to blacklist token', error);
     }
   }
 
   /**
-   * Checking if token is blacklisted
-   * @param token JWT token for checking
-   * @returns true if token is blacklisted, otherwise false
+   * Check if a given jti has been revoked.
+   * Returns true only if the entry is present AND has not expired.
    */
-  isTokenBlacklisted(token: string): boolean {
-    return this.blacklistedTokens.has(token);
+  async isTokenBlacklisted(jti: string): Promise<boolean> {
+    const count = await this.revokedTokenRepository.count({
+      where: { jti, expiresAt: MoreThan(new Date()) },
+    });
+    return count > 0;
   }
 
   /**
-   * Clear expired tokens from blacklist
-   */
-  private cleanupExpiredTokens(): void {
-    const now = Math.floor(Date.now() / 1000);
-
-    for (const [token, expiry] of this.blacklistedTokens.entries()) {
-      if (expiry < now) {
-        this.blacklistedTokens.delete(token);
-      }
-    }
-  }
-
-  /**
-   * Decode token without verification (for logout purposes)
-   * @param token JWT token
-   * @returns Decoded token payload
+   * Utility: decode a JWT without verification.
+   * Used by LogoutService to extract the user sub.
    */
   decodeToken(token: string): unknown {
     try {
       return this.jwtService.decode(token);
-    } catch (error) {
+    } catch {
       return null;
     }
+  }
+
+  /**
+   * L-7 / H-1: Daily cleanup of expired revoked token entries.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_4AM)
+  async scheduledCleanup(): Promise<void> {
+    const result = await this.revokedTokenRepository.delete({
+      expiresAt: LessThan(new Date()),
+    });
+    this.logger.log(`Cleaned up ${result.affected} expired revoked tokens`);
   }
 }

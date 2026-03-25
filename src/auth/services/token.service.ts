@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes, createHash } from 'crypto';
 import { User } from '@/entities/user.entity';
@@ -7,12 +7,16 @@ import { RefreshTokenStorageService } from './refresh-token-storage.service';
 
 @Injectable()
 export class TokenService {
+  private readonly logger = new Logger(TokenService.name);
+
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
     private refreshTokenStorageService: RefreshTokenStorageService,
   ) {}
 
+  // M-1: organizationId is now included in the JWT payload as `org`
+  // This eliminates the extra DB lookup on every authenticated request
   generateAccessToken(
     user: User,
     organizationId: string,
@@ -21,6 +25,7 @@ export class TokenService {
   ) {
     const payload = {
       sub: user.id,
+      org: organizationId,
       jti: this.generateJti(),
       iss: this.configService.get('jwt.issuer', 'dentalcrm-backend'),
       aud: this.configService.get('jwt.audience', 'dentalcrm-frontend'),
@@ -55,9 +60,10 @@ export class TokenService {
       expiresIn: refreshExpiresIn,
     });
 
-    const expiresAt = new Date();
-    const expiresInDays = parseInt(refreshExpiresIn.replace('d', ''));
-    expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+    // M-8: Use robust parser that handles s/m/h/d/w formats
+    const expiresAt = new Date(
+      Date.now() + this.parseExpiresInToMs(refreshExpiresIn),
+    );
 
     await this.refreshTokenStorageService.storeRefreshToken(
       refreshToken,
@@ -69,6 +75,31 @@ export class TokenService {
     );
 
     return refreshToken;
+  }
+
+  /**
+   * M-8: Parse JWT expiresIn strings like '7d', '24h', '60m', '30s', '2w'
+   * Falls back to 7 days if the format is unrecognised.
+   */
+  private parseExpiresInToMs(expiresIn: string): number {
+    const units: Record<string, number> = {
+      s: 1000,
+      m: 60 * 1000,
+      h: 60 * 60 * 1000,
+      d: 24 * 60 * 60 * 1000,
+      w: 7 * 24 * 60 * 60 * 1000,
+    };
+
+    const match = expiresIn.match(/^(\d+)([smhdw])$/);
+    if (!match) {
+      this.logger.warn(
+        `Invalid expiresIn format: "${expiresIn}", defaulting to 7d`,
+      );
+      return 7 * 24 * 60 * 60 * 1000;
+    }
+
+    const [, value, unit] = match;
+    return parseInt(value, 10) * units[unit];
   }
 
   private generateJti(): string {
@@ -170,14 +201,6 @@ export class TokenService {
     return this.generateFingerprint(userAgent, ip);
   }
 
-  /**
-   * Rotate refresh token - invalidate old and create new
-   * @param oldRefreshToken Current refresh token
-   * @param user User object
-   * @param userAgent User agent
-   * @param ip IP address
-   * @returns New refresh token
-   */
   async rotateRefreshToken(
     oldRefreshToken: string,
     user: User,
@@ -191,11 +214,6 @@ export class TokenService {
     return this.generateRefreshToken(user, userAgent, ip);
   }
 
-  /**
-   * Validate refresh token against database
-   * @param token Refresh token
-   * @returns Decoded token if valid, null otherwise
-   */
   async validateRefreshTokenFromDB(token: string) {
     const decoded = this.verifyRefreshToken(token);
     if (!decoded) {

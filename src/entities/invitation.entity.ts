@@ -5,13 +5,18 @@ import {
   ManyToOne,
   CreateDateColumn,
   UpdateDateColumn,
-} from "typeorm";
-import { UserRole, InvitationStatus } from "@/types/enums";
-import { Organization } from "@entities/organization.entity";
+  Index,
+} from 'typeorm';
+import { UserRole, InvitationStatus } from '@/types/enums';
+import { Organization } from '@entities/organization.entity';
 
-@Entity("invitations")
+// M-10: Indexes prevent full table scans on all lookup fields
+@Entity('invitations')
+@Index(['token'])
+@Index(['organizationId'])
+@Index(['email'])
 export class Invitation {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
@@ -20,23 +25,24 @@ export class Invitation {
   @Column()
   email: string;
 
-  @Column({ type: "enum", enum: UserRole })
+  @Column({ type: 'enum', enum: UserRole })
   role: UserRole;
 
   @Column({
-    type: "enum",
+    type: 'enum',
     enum: InvitationStatus,
     default: InvitationStatus.PENDING,
   })
   status: InvitationStatus;
 
-  @ManyToOne(() => Organization)
+  // L-8: CASCADE ensures invitations are removed when organization is deleted
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
   organization: Organization;
 
   @Column()
   organizationId: string;
 
-  @Column({ type: "timestamp" })
+  @Column({ type: 'timestamp' })
   expiresAt: Date;
 
   @CreateDateColumn()

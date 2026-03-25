@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   Repository,
   FindOptionsWhere,
@@ -88,22 +88,32 @@ export abstract class BaseTenantService<T extends ObjectLiteral> {
   }
 
   /**
-   * Update entity with organization check
+   * Update entity with organization check.
+   * M-2: Throws NotFoundException when 0 rows affected (tenant mismatch or missing entity).
    */
   async update(
     where: FindOptionsWhere<T>,
     updateData: Partial<T>,
   ): Promise<void> {
     const filteredWhere = await this.addOrganizationFilter(where);
-    await this.repository.update(filteredWhere, updateData);
+    const result = await this.repository.update(filteredWhere, updateData);
+
+    if (result.affected === 0) {
+      throw new NotFoundException('Resource not found or access denied');
+    }
   }
 
   /**
-   * Delete entity with organization check
+   * Delete entity with organization check.
+   * M-2: Throws NotFoundException when 0 rows affected (tenant mismatch or missing entity).
    */
   async delete(where: FindOptionsWhere<T>): Promise<void> {
     const filteredWhere = await this.addOrganizationFilter(where);
-    await this.repository.delete(filteredWhere);
+    const result = await this.repository.delete(filteredWhere);
+
+    if (result.affected === 0) {
+      throw new NotFoundException('Resource not found or access denied');
+    }
   }
 
   /**

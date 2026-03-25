@@ -1,15 +1,12 @@
-import { IsNotEmpty, IsString, MinLength, Matches } from "class-validator";
+import { IsNotEmpty, IsString } from 'class-validator';
+import { IsStrongPassword } from './password.validator';
 
 export class ResetPasswordDto {
   @IsString()
-  @IsNotEmpty({ message: "Token is required" })
+  @IsNotEmpty({ message: 'Token is required' })
   token: string;
 
-  @IsString()
-  @MinLength(6, { message: "Password must be at least 6 characters long" })
-  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
-    message:
-      "Password must contain at least 1 uppercase letter, 1 lowercase letter, and 1 number or special character",
-  })
+  // M-9: Unified password policy — same rules as registration
+  @IsStrongPassword()
   password: string;
 }

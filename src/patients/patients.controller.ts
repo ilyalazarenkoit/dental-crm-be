@@ -5,6 +5,7 @@ import {
   Param,
   HttpCode,
   HttpStatus,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -97,7 +98,7 @@ export class PatientsController {
     status: 401,
     description: 'Unauthorized - Invalid or missing JWT token',
   })
-  async getPatientById(@Param('id') id: string) {
+  async getPatientById(@Param('id', ParseUUIDPipe) id: string) {
     // Organization ID is automatically retrieved from user context
     return this.patientsService.getPatientById(id);
   }

@@ -39,6 +39,9 @@ export class Organization {
   @Column({ type: 'integer', default: 10 })
   doctorLimit: number;
 
+  @Column({ type: 'varchar', nullable: true })
+  logoUrl: string | null;
+
   @OneToMany(() => User, user => user.organization)
   users: User[];
 

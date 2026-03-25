@@ -1,11 +1,14 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, LessThan, In, MoreThan } from "typeorm";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import { RefreshToken } from "@/entities/refresh-token.entity";
 import { createHash } from "crypto";
 
 @Injectable()
 export class RefreshTokenStorageService {
+  private readonly logger = new Logger(RefreshTokenStorageService.name);
+
   constructor(
     @InjectRepository(RefreshToken)
     private refreshTokenRepository: Repository<RefreshToken>
@@ -149,16 +152,19 @@ export class RefreshTokenStorageService {
   }
 
   /**
-   * Clean up all expired tokens (should be called periodically)
+   * L-7: Clean up all expired tokens.
+   * Previously this method existed but was never called — now scheduled daily at 3AM.
    */
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async cleanupExpiredTokens(): Promise<void> {
     const now = new Date();
-    await this.refreshTokenRepository.update(
+    const result = await this.refreshTokenRepository.update(
       {
         expiresAt: LessThan(now),
         isActive: true,
       },
       { isActive: false }
     );
+    this.logger.log(`Scheduled refresh token cleanup: ${result.affected} tokens deactivated`);
   }
 }

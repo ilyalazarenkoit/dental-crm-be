@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,22 +13,27 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class PasswordRecoveryService {
+  private readonly logger = new Logger(PasswordRecoveryService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private mailService: MailService,
   ) {}
 
+  // H-2: Prevent user enumeration — always return 200 with a neutral message
   async forgotPassword(email: string): Promise<{ message: string }> {
+    const standardResponse = {
+      message:
+        'If this email is registered, you will receive reset instructions shortly.',
+    };
+
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
-      throw new BadRequestException(
-        'We have sent an email with further instructions if the address is registered.',
-      );
+      return standardResponse;
     }
 
     const resetToken = this.generateResetToken();
-
     const resetTokenExpires = new Date();
     resetTokenExpires.setHours(resetTokenExpires.getHours() + 1);
 
@@ -35,11 +41,16 @@ export class PasswordRecoveryService {
     user.resetPasswordExpires = resetTokenExpires;
     await this.userRepository.save(user);
 
-    await this.mailService.sendPasswordResetEmail(user.email, resetToken);
+    try {
+      await this.mailService.sendPasswordResetEmail(user.email, resetToken);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send password reset email for user ${user.id}`,
+        error,
+      );
+    }
 
-    return {
-      message: 'Password reset instructions have been sent to your email',
-    };
+    return standardResponse;
   }
 
   async resetPassword(
@@ -62,8 +73,9 @@ export class PasswordRecoveryService {
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     user.password = hashedPassword;
-    user.resetPasswordToken = '';
-    user.resetPasswordExpires = new Date();
+    // L-1: Clear used tokens properly with null
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
 
     await this.userRepository.save(user);
 
